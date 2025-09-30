@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Button, Text, Alert, Image, StyleSheet } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { api } from "../client";
 import { colors, spacing } from "../theme";
@@ -10,14 +11,53 @@ export default function ProofUpload() {
   const [status, setStatus] = useState<any>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const missingTokenMessage = "Token não encontrado. Faça o onboarding novamente.";
+
+  const allowedMimes = useMemo(
+    () => new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]),
+    []
+  );
+
+  useEffect(() => {
+    check(true);
+  }, []);
+
+  async function ensureToken(options: { silent?: boolean } = {}) {
+    const stored = await AsyncStorage.getItem("token");
+    if (!stored) {
+      setLastError(missingTokenMessage);
+      if (!options.silent) {
+        Alert.alert("Atenção", missingTokenMessage);
+      }
+      return null;
+    }
+    return stored;
+  }
 
   async function pickAndSend() {
+    const token = await ensureToken();
+    if (!token) return;
+
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: false, quality: 1,
     });
     if (res.canceled) return;
 
     const asset = res.assets[0];
+    const mimeType = asset.mimeType || "";
+    const fileSize = asset.fileSize ?? 0;
+
+    if (mimeType && !allowedMimes.has(mimeType.toLowerCase())) {
+      Alert.alert("Formato inválido", "Envie uma imagem JPEG, PNG, WEBP ou HEIC.");
+      return;
+    }
+
+    if (fileSize > 0 && fileSize > 6 * 1024 * 1024) {
+      Alert.alert("Arquivo muito grande", "O limite é de 6MB.");
+      return;
+    }
+
     setPreview(asset.uri);
     const file: RNFile = {
       uri: asset.uri,
@@ -30,19 +70,52 @@ export default function ProofUpload() {
 
     try {
       setBusy(true);
+      setLastError(null);
       const { data } = await api.post("/proofs", form, { headers: { "Content-Type": "multipart/form-data" } });
       setStatus(data);
       Alert.alert("Enviado!", `Status: ${data.status}`);
     } catch (e: any) {
-      Alert.alert("Erro", e?.response?.data?.error || e.message);
+      const statusCode = e?.response?.status;
+      const message = e?.response?.data?.error || e.message;
+      if (statusCode === 401) {
+        const friendly = "Token inválido. Refazendo o onboarding você gera um novo.";
+        setLastError(friendly);
+        await AsyncStorage.removeItem("token");
+        Alert.alert("Sessão expirada", friendly);
+        setStatus(null);
+      } else {
+        setLastError(message);
+        Alert.alert("Erro", message || "Não foi possível enviar o comprovante");
+      }
     } finally {
       setBusy(false);
     }
   }
 
-  async function check() {
-    const { data } = await api.get("/proofs/status");
-    setStatus(data);
+  async function check(silentMissingToken = false) {
+    const token = await ensureToken({ silent: silentMissingToken });
+    if (!token) return;
+
+    try {
+      const { data } = await api.get("/proofs/status");
+      setStatus(data);
+      setLastError(null);
+    } catch (e: any) {
+      const statusCode = e?.response?.status;
+      const message = e?.response?.data?.error || e.message;
+      if (statusCode === 401) {
+        const friendly = "Token inválido. Refazendo o onboarding você gera um novo.";
+        setLastError(friendly);
+        await AsyncStorage.removeItem("token");
+        setStatus(null);
+        if (!silentMissingToken) {
+          Alert.alert("Sessão expirada", friendly);
+        }
+      } else {
+        setLastError(message);
+        Alert.alert("Erro", message || "Não foi possível consultar o status");
+      }
+    }
   }
 
   return (
@@ -53,12 +126,13 @@ export default function ProofUpload() {
 
       <View style={{ gap: spacing(1) }}>
         <Button title={busy ? "Enviando..." : "Selecionar e enviar"} onPress={pickAndSend} disabled={busy} />
-        <Button title="Ver status" onPress={check} />
+        <Button title="Ver status" onPress={() => check()} />
       </View>
 
       <View style={{ marginTop: spacing(2), gap: 6 }}>
         <Text style={styles.label}>Status: <Text style={styles.value}>{status?.status ?? "-"}</Text></Text>
         <Text style={styles.label}>Motivo: <Text style={styles.value}>{status?.reason ?? "-"}</Text></Text>
+        {lastError ? <Text style={[styles.label, { color: colors.warn }]}>Último erro: {lastError}</Text> : null}
       </View>
     </View>
   );
