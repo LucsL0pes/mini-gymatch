@@ -20,7 +20,7 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <NavigationContainer>
-        <Stack.Navigator initialRouteName="Onboarding">
+        <Stack.Navigator id={undefined} initialRouteName="Onboarding">
           <Stack.Screen name="Onboarding" component={Onboarding} />
           <Stack.Screen name="Swipe" component={Swipe} />
           <Stack.Screen name="Matches" component={Matches} />
