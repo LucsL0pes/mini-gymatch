@@ -1,5 +1,5 @@
 import { Router } from "express";
-import auth from "../middleware/auth";
+import { auth } from "../middleware/auth";
 import { parseMultipartFormData } from "../utils/multipart";
 import { supabase } from "../services/db";
 import {
@@ -31,30 +31,34 @@ type ProofRecord = {
   status: "pending" | "approved" | "rejected";
   reason: string | null;
   file_url: string | null;
+  ocr_text: string | null;
 };
 
 async function upsertProof(
-  profileId: string,
+  userId: string,
   payload: Partial<ProofRecord>
 ): Promise<ProofRecord> {
   const { data, error } = await supabase
     .from("proofs")
     .upsert(
       {
-        profile_id: profileId, // troque se a coluna for user_id
+        user_id: userId,
         ...payload,
       },
-      { onConflict: "profile_id" }
+      { onConflict: "user_id" }
     )
-    .select("status, reason, file_url")
+    .select("status, reason, file_url, ocr_text")
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    throw new Error(error.message);
+  }
 
   return {
     status: (data?.status as ProofRecord["status"]) ?? "pending",
     reason: (data?.reason as ProofRecord["reason"]) ?? null,
     file_url: (data?.file_url as ProofRecord["file_url"]) ?? null,
+    ocr_text: (data?.ocr_text as ProofRecord["ocr_text"]) ?? null,
   };
 }
 
@@ -137,6 +141,7 @@ router.post("/", async (req, res) => {
       file_url: publicUrl,
       status: "pending",
       reason: null,
+      ocr_text: null,
     });
   } catch (err: any) {
     return res.status(400).json({
@@ -151,15 +156,19 @@ router.post("/", async (req, res) => {
   // Validação automática por IA (tolerante a falhas ou disabled)
   try {
     const validation = await validateGymProofImage(file.data, mime, {
-      profileId: me,
+      profileId: me, // se o serviço usar outro nome, ajuste aqui
     });
     status = validation.approved ? "approved" : "rejected";
     reason = buildReasonFromAi(validation);
 
     await supabase
       .from("proofs")
-      .update({ status, reason })
-      .eq("profile_id", me);
+      .update({
+        status,
+        reason,
+        ocr_text: validation.matchedKeywords.join(", ") || null,
+      })
+      .eq("user_id", me);
   } catch (err) {
     if (err instanceof ProofValidationDisabledError) {
       status = "pending";
@@ -175,7 +184,7 @@ router.post("/", async (req, res) => {
     await supabase
       .from("proofs")
       .update({ status, reason })
-      .eq("profile_id", me);
+      .eq("user_id", me);
   }
 
   return res.json({ status, reason, file_url: fileUrl });
@@ -191,7 +200,7 @@ router.get("/status", async (req, res) => {
   const { data, error } = await supabase
     .from("proofs")
     .select("status, reason, file_url, updated_at, created_at")
-    .eq("profile_id", me)
+    .eq("user_id", me)
     .maybeSingle();
 
   if (error) return res.status(400).json({ error: error.message });
