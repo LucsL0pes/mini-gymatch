@@ -41,7 +41,7 @@ async function upsertProof(
     .from("proofs")
     .upsert(
       {
-        profile_id: profileId, // se sua coluna for user_id, troque aqui e nos .eq abaixo
+        profile_id: profileId, // troque se a coluna for user_id
         ...payload,
       },
       { onConflict: "profile_id" }
@@ -195,7 +195,6 @@ router.get("/status", async (req, res) => {
     .maybeSingle();
 
   if (error) return res.status(400).json({ error: error.message });
-
   if (!data) return res.json({ status: "not_submitted" });
 
   return res.json({
