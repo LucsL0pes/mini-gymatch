@@ -40,7 +40,9 @@ export default function ProofUpload() {
     if (!token) return;
 
     const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsMultipleSelection: false, quality: 1,
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: false,
+      quality: 1,
     });
     if (res.canceled) return;
 
@@ -71,7 +73,9 @@ export default function ProofUpload() {
     try {
       setBusy(true);
       setLastError(null);
-      const { data } = await api.post("/proofs", form, { headers: { "Content-Type": "multipart/form-data" } });
+      const { data } = await api.post("/proofs", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       setStatus(data);
       Alert.alert("Enviado!", `Status: ${data.status}`);
     } catch (e: any) {
@@ -130,9 +134,15 @@ export default function ProofUpload() {
       </View>
 
       <View style={{ marginTop: spacing(2), gap: 6 }}>
-        <Text style={styles.label}>Status: <Text style={styles.value}>{status?.status ?? "-"}</Text></Text>
-        <Text style={styles.label}>Motivo: <Text style={styles.value}>{status?.reason ?? "-"}</Text></Text>
-        {lastError ? <Text style={[styles.label, { color: colors.warn }]}>Último erro: {lastError}</Text> : null}
+        <Text style={styles.label}>
+          Status: <Text style={styles.value}>{status?.status ?? "-"}</Text>
+        </Text>
+        <Text style={styles.label}>
+          Motivo: <Text style={styles.value}>{status?.reason ?? "-"}</Text>
+        </Text>
+        {lastError ? (
+          <Text style={[styles.label, { color: colors.warn }]}>Último erro: {lastError}</Text>
+        ) : null}
       </View>
     </View>
   );
@@ -141,7 +151,14 @@ export default function ProofUpload() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg, padding: spacing(2), gap: spacing(2) },
   title: { color: colors.text, fontSize: 22, fontWeight: "800" },
-  preview: { width: "100%", height: 220, borderRadius: 12, borderWidth: 1, borderColor: colors.border, resizeMode: "cover" },
+  preview: {
+    width: "100%",
+    height: 220,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    resizeMode: "cover",
+  },
   label: { color: colors.textDim },
   value: { color: colors.text },
 });
