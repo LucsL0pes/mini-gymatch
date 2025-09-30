@@ -7,8 +7,8 @@ import { colors, radius, spacing } from "../theme";
 export default function Onboarding({ navigation }: any) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [gender, setGender] = useState<"masculino" | "feminino" | "outro">("masculino");
-  const [showMe, setShowMe] = useState<"masculino" | "feminino" | "tudo">("tudo");
+  const [gender, setGender] = useState<"male" | "female" | "other">("male");
+  const [showMe, setShowMe] = useState<"male" | "female" | "everyone">("everyone");
   const [loading, setLoading] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<{ name?: string; email?: string }>({});
 
