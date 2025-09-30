@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Button, Text, Alert, Image, StyleSheet } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { api } from "../client";
@@ -10,6 +10,16 @@ export default function ProofUpload() {
   const [status, setStatus] = useState<any>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+
+  const allowedMimes = useMemo(
+    () => new Set(["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"]),
+    []
+  );
+
+  useEffect(() => {
+    check();
+  }, []);
 
   async function pickAndSend() {
     const res = await ImagePicker.launchImageLibraryAsync({
@@ -18,6 +28,19 @@ export default function ProofUpload() {
     if (res.canceled) return;
 
     const asset = res.assets[0];
+    const mimeType = asset.mimeType || "";
+    const fileSize = asset.fileSize ?? 0;
+
+    if (mimeType && !allowedMimes.has(mimeType.toLowerCase())) {
+      Alert.alert("Formato inválido", "Envie uma imagem JPEG, PNG, WEBP ou HEIC.");
+      return;
+    }
+
+    if (fileSize > 0 && fileSize > 6 * 1024 * 1024) {
+      Alert.alert("Arquivo muito grande", "O limite é de 6MB.");
+      return;
+    }
+
     setPreview(asset.uri);
     const file: RNFile = {
       uri: asset.uri,
@@ -30,19 +53,29 @@ export default function ProofUpload() {
 
     try {
       setBusy(true);
+      setLastError(null);
       const { data } = await api.post("/proofs", form, { headers: { "Content-Type": "multipart/form-data" } });
       setStatus(data);
       Alert.alert("Enviado!", `Status: ${data.status}`);
     } catch (e: any) {
-      Alert.alert("Erro", e?.response?.data?.error || e.message);
+      const message = e?.response?.data?.error || e.message;
+      setLastError(message);
+      Alert.alert("Erro", message || "Não foi possível enviar o comprovante");
     } finally {
       setBusy(false);
     }
   }
 
   async function check() {
-    const { data } = await api.get("/proofs/status");
-    setStatus(data);
+    try {
+      const { data } = await api.get("/proofs/status");
+      setStatus(data);
+      setLastError(null);
+    } catch (e: any) {
+      const message = e?.response?.data?.error || e.message;
+      setLastError(message);
+      Alert.alert("Erro", message || "Não foi possível consultar o status");
+    }
   }
 
   return (
@@ -59,6 +92,7 @@ export default function ProofUpload() {
       <View style={{ marginTop: spacing(2), gap: 6 }}>
         <Text style={styles.label}>Status: <Text style={styles.value}>{status?.status ?? "-"}</Text></Text>
         <Text style={styles.label}>Motivo: <Text style={styles.value}>{status?.reason ?? "-"}</Text></Text>
+        {lastError ? <Text style={[styles.label, { color: colors.warn }]}>Último erro: {lastError}</Text> : null}
       </View>
     </View>
   );
