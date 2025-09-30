@@ -128,6 +128,7 @@ router.post('/', async (req, res) => {
   const { data: publicUrlData } = storage.getPublicUrl(filePath);
   const publicUrl = publicUrlData?.publicUrl ?? null;
 
+  // Upsert inicial como pending
   let record: ProofRecord;
   try {
     record = await upsertProof(me, {
@@ -144,6 +145,7 @@ router.post('/', async (req, res) => {
   let reason = record.reason;
   const fileUrl = record.file_url ?? publicUrl;
 
+  // Validação automática por IA (tolerante a falhas/disabled)
   try {
     const validation = await validateGymProofImage(file.data, mime, { profileId: me });
     status = validation.approved ? 'approved' : 'rejected';
