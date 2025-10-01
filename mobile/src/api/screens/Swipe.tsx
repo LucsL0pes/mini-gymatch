@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet } from "react-native";
+import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet, Alert } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AntDesign, Entypo } from "@expo/vector-icons";
 import { api } from "../client";
 import SwipeCardSimple from "../components/SwipeCardSimple";
-import { colors, radius, spacing } from "../theme";
+import { colors, spacing } from "../theme";
+
+const MESSAGE_ICON = "message1" as keyof typeof AntDesign.glyphMap;
 
 export default function Swipe({ navigation }: any) {
   const [queue, setQueue] = useState<any[]>([]);
@@ -14,8 +17,23 @@ export default function Swipe({ navigation }: any) {
   async function load() {
     setLoading(true);
     try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        Alert.alert("Atenção", "Faça o onboarding antes de continuar.", [
+          { text: "Ok", onPress: () => navigation.replace("Onboarding") },
+        ]);
+        setQueue([]);
+        setIndex(0);
+        return;
+      }
+
       const { data } = await api.get("/feed");
-      setQueue(data || []);
+      setQueue(Array.isArray(data) ? data : []);
+      setIndex(0);
+    } catch (e: any) {
+      const message = e?.response?.data?.error || e.message;
+      Alert.alert("Erro", message || "Não foi possível carregar a fila");
+      setQueue([]);
       setIndex(0);
     } finally {
       setLoading(false);
@@ -27,9 +45,17 @@ export default function Swipe({ navigation }: any) {
   async function handleSwipe(dir: "left" | "right") {
     const current = queue[index];
     if (!current) return;
-    await api.post("/swipes", { to_user: current.id, decision: dir === "right" ? "like" : "pass" });
-    setIndex(i => i + 1);
-    if (index + 1 >= queue.length) setTimeout(() => setReloadKey(k => k + 1), 150);
+    try {
+      await api.post("/swipes", {
+        to_user: String(current.id),
+        decision: dir === "right" ? "like" : "pass",
+      });
+      setIndex((i) => i + 1);
+      if (index + 1 >= queue.length) setTimeout(() => setReloadKey((k) => k + 1), 150);
+    } catch (e: any) {
+      const message = e?.response?.data?.error || e.message;
+      Alert.alert("Erro", message || "Não foi possível registrar o swipe");
+    }
   }
 
   const stack = useMemo(() => queue.slice(index, index + 3), [queue, index]);
@@ -42,7 +68,7 @@ export default function Swipe({ navigation }: any) {
         {stack.length === 0 ? (
           <View style={styles.center}>
             <Text style={styles.emptyText}>Sem pessoas no momento</Text>
-            <PrimaryButton label="Atualizar" onPress={() => setReloadKey(k=>k+1)} />
+            <PrimaryButton label="Atualizar" onPress={() => setReloadKey((k) => k + 1)} />
           </View>
         ) : (
           stack.map((u, i) => (
@@ -56,7 +82,7 @@ export default function Swipe({ navigation }: any) {
           <Entypo name="cross" size={32} color={colors.nope} />
         </CircleButton>
         <CircleButton onPress={() => navigation.navigate("Matches")} border={colors.info}>
-          <AntDesign name="message1" size={26} color={colors.info} />
+          <AntDesign name={MESSAGE_ICON} size={26} color={colors.info} />
         </CircleButton>
         <CircleButton onPress={() => handleSwipe("right")} big border={colors.like}>
           <AntDesign name="heart" size={28} color={colors.like} />

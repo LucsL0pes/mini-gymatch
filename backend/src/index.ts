@@ -6,6 +6,7 @@ import profiles from './routes/profiles';
 import feed from './routes/feed';
 import swipes from './routes/swipes';
 import matches from './routes/matches';
+import proofs from './routes/proofs';
 
 const app = express();
 app.use(cors());
@@ -30,4 +31,5 @@ app.use('/api/profiles', profiles);
 app.use('/api/feed', feed);
 app.use('/api/swipes', swipes);
 app.use('/api/matches', matches);
+app.use('/api/proofs', proofs);
 app.listen(port, () => console.log(`API on http://localhost:${port}`));
