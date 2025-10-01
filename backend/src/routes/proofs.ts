@@ -34,20 +34,73 @@ type ProofRecord = {
   ocr_text: string | null;
 };
 
-async function upsertProof(
+export async function upsertProof(
   userId: string,
-  payload: Partial<ProofRecord>
+  payload: Partial<ProofRecord>,
+  client = supabase
 ): Promise<ProofRecord> {
-  const { data, error } = await supabase
+  const sanitizedPayload = Object.fromEntries(
+    Object.entries(payload).filter(([, value]) => value !== undefined)
+  );
+
+  const { data: existing, error: fetchError } = await client
     .from("proofs")
-    .upsert(
-      {
-        user_id: userId,
-        ...payload,
-      },
-      { onConflict: "user_id" }
-    )
-    .select("status, reason, file_url, ocr_text")
+    .select("id")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ id: string }>();
+
+  if (fetchError) {
+    throw new Error(fetchError.message);
+  }
+
+  const baseSelect = "status, reason, file_url, ocr_text";
+  const existingId = existing?.id;
+
+  if (existingId) {
+    if (!Object.keys(sanitizedPayload).length) {
+      const { data, error } = await client
+        .from("proofs")
+        .select(baseSelect)
+        .eq("id", existingId)
+        .single();
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      return {
+        status: (data?.status as ProofRecord["status"]) ?? "pending",
+        reason: (data?.reason as ProofRecord["reason"]) ?? null,
+        file_url: (data?.file_url as ProofRecord["file_url"]) ?? null,
+        ocr_text: (data?.ocr_text as ProofRecord["ocr_text"]) ?? null,
+      };
+    }
+
+    const { data, error } = await client
+      .from("proofs")
+      .update(sanitizedPayload)
+      .eq("id", existingId)
+      .select(baseSelect)
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return {
+      status: (data?.status as ProofRecord["status"]) ?? "pending",
+      reason: (data?.reason as ProofRecord["reason"]) ?? null,
+      file_url: (data?.file_url as ProofRecord["file_url"]) ?? null,
+      ocr_text: (data?.ocr_text as ProofRecord["ocr_text"]) ?? null,
+    };
+  }
+
+  const { data, error } = await client
+    .from("proofs")
+    .insert({ user_id: userId, ...sanitizedPayload })
+    .select(baseSelect)
     .single();
 
   if (error) {
@@ -197,11 +250,19 @@ router.get("/status", async (req, res) => {
   const me = (req as any).user?.id as string;
   if (!me) return res.status(401).json({ error: "unauthorized" });
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("proofs")
-    .select("status, reason, file_url, updated_at, created_at")
+    .select("status, reason, file_url, created_at, updated_at")
     .eq("user_id", me)
     .maybeSingle();
+
+  if (error && /updated_at/.test(error.message || "")) {
+    ({ data, error } = await supabase
+      .from("proofs")
+      .select("status, reason, file_url, created_at")
+      .eq("user_id", me)
+      .maybeSingle());
+  }
 
   if (error) return res.status(400).json({ error: error.message });
   if (!data) return res.json({ status: "not_submitted" });
@@ -210,7 +271,8 @@ router.get("/status", async (req, res) => {
     status: (data as any).status,
     reason: (data as any).reason,
     file_url: (data as any).file_url,
-    updated_at: (data as any).updated_at ?? null,
+    updated_at:
+      (data as any).updated_at ?? (data as any).created_at ?? null,
     created_at: (data as any).created_at ?? null,
   });
 });
