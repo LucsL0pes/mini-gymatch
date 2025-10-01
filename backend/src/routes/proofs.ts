@@ -28,7 +28,7 @@ const router = Router();
 router.use(auth);
 
 type ProofRecord = {
-  status: "pending" | "approved" | "rejected";
+  status: "manual_review" | "approved" | "rejected";
   reason: string | null;
   file_url: string | null;
   ocr_text: string | null;
@@ -108,7 +108,7 @@ export async function upsertProof(
   }
 
   return {
-    status: (data?.status as ProofRecord["status"]) ?? "pending",
+    status: (data?.status as ProofRecord["status"]) ?? "manual_review",
     reason: (data?.reason as ProofRecord["reason"]) ?? null,
     file_url: (data?.file_url as ProofRecord["file_url"]) ?? null,
     ocr_text: (data?.ocr_text as ProofRecord["ocr_text"]) ?? null,
@@ -187,12 +187,12 @@ router.post("/", async (req, res) => {
   const { data: publicUrlData } = storage.getPublicUrl(filePath);
   const publicUrl = publicUrlData?.publicUrl ?? null;
 
-  // upsert inicial: pending
+  // upsert inicial: manual review (status padrão aceito pelo banco)
   let record: ProofRecord;
   try {
     record = await upsertProof(me, {
       file_url: publicUrl,
-      status: "pending",
+      status: "manual_review",
       reason: null,
       ocr_text: null,
     });
@@ -224,12 +224,12 @@ router.post("/", async (req, res) => {
       .eq("user_id", me);
   } catch (err) {
     if (err instanceof ProofValidationDisabledError) {
-      status = "pending";
+      status = "manual_review";
       reason =
         "Comprovante recebido. A validação automática está desativada e será concluída manualmente em breve.";
     } else {
       console.error("proof-validation:error", err);
-      status = "pending";
+      status = "manual_review";
       reason =
         "Comprovante recebido, mas ocorreu um erro na validação automática. Nossa equipe fará a revisão manual.";
     }
