@@ -35,7 +35,7 @@ Aplicação composta por um backend em Node.js/Express e um app mobile em React 
    OPENAI_PROOF_ENDPOINT=https://api.openai.com/v1/responses # opcional
    ```
 
-   > Se `OPENAI_API_KEY` não for configurada, a API receberá o comprovante e manterá o status como `pending` para revisão manual.
+   > Se `OPENAI_API_KEY` não for configurada, a API receberá o comprovante e manterá o status como `manual_review` para revisão manual.
 
 3. Execute o servidor em modo desenvolvimento:
 
