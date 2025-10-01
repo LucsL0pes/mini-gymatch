@@ -59,7 +59,7 @@ Aplicação composta por um backend em Node.js/Express e um app mobile em React 
    ```bash
    EXPO_PUBLIC_API_URL=http://localhost:3000/api           # iOS simulador
    EXPO_PUBLIC_API_URL=http://10.0.2.2:3000/api            # Android emulador
-   EXPO_PUBLIC_API_URL=http://192.168.0.10:3000/api        # Dispositivo físico
+   EXPO_PUBLIC_API_URL=http://<seu-Ipv4>:3000/api        # Dispositivo físico, deve adicionar informação de IPV4 de sua máquina (dispositivo físico deve estar na mesma rede)
    ```
 
    > Em emuladores Android, pode ser necessário rodar `adb reverse tcp:3000 tcp:3000` para que o app acesse o backend local.
