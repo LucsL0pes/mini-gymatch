@@ -71,7 +71,7 @@ export async function upsertProof(
       }
 
       return {
-        status: (data?.status as ProofRecord["status"]) ?? "pending",
+        status: (data?.status as ProofRecord["status"]) ?? "manual_review",
         reason: (data?.reason as ProofRecord["reason"]) ?? null,
         file_url: (data?.file_url as ProofRecord["file_url"]) ?? null,
         ocr_text: (data?.ocr_text as ProofRecord["ocr_text"]) ?? null,
@@ -90,7 +90,7 @@ export async function upsertProof(
     }
 
     return {
-      status: (data?.status as ProofRecord["status"]) ?? "pending",
+      status: (data?.status as ProofRecord["status"]) ?? "manual_review",
       reason: (data?.reason as ProofRecord["reason"]) ?? null,
       file_url: (data?.file_url as ProofRecord["file_url"]) ?? null,
       ocr_text: (data?.ocr_text as ProofRecord["ocr_text"]) ?? null,
@@ -146,7 +146,7 @@ function buildReasonFromAi(validation: ProofValidationOutcome): string | null {
 }
 
 /**
- * POST /api/proofs
+ * método POST /api/proofs
  * multipart/form-data (campo: file)
  */
 router.post("/", async (req, res) => {
@@ -206,10 +206,10 @@ router.post("/", async (req, res) => {
   let reason = record.reason;
   const fileUrl = record.file_url ?? publicUrl;
 
-  // Validação automática por IA (tolerante a falhas ou disabled)
+  
   try {
     const validation = await validateGymProofImage(file.data, mime, {
-      profileId: me, // se o serviço usar outro nome, ajuste aqui
+      profileId: me,
     });
     status = validation.approved ? "approved" : "rejected";
     reason = buildReasonFromAi(validation);
