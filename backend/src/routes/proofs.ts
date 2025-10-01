@@ -71,7 +71,7 @@ export async function upsertProof(
       }
 
       return {
-        status: (data?.status as ProofRecord["status"]) ?? "manual_review",
+        status: (data?.status as ProofRecord["status"]) ?? "pending",
         reason: (data?.reason as ProofRecord["reason"]) ?? null,
         file_url: (data?.file_url as ProofRecord["file_url"]) ?? null,
         ocr_text: (data?.ocr_text as ProofRecord["ocr_text"]) ?? null,
@@ -90,7 +90,7 @@ export async function upsertProof(
     }
 
     return {
-      status: (data?.status as ProofRecord["status"]) ?? "manual_review",
+      status: (data?.status as ProofRecord["status"]) ?? "pending",
       reason: (data?.reason as ProofRecord["reason"]) ?? null,
       file_url: (data?.file_url as ProofRecord["file_url"]) ?? null,
       ocr_text: (data?.ocr_text as ProofRecord["ocr_text"]) ?? null,

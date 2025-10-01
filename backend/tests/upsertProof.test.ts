@@ -45,7 +45,7 @@ function createExistingLookupHandler(
 }
 
 type ProofPayload = {
-  status: "manual_review" | "approved" | "rejected";
+  status: "pending" | "approved" | "rejected";
   reason: string | null;
   file_url: string | null;
   ocr_text: string | null;
@@ -116,7 +116,7 @@ async function testInsertCreatesNewRecord() {
     createExistingLookupHandler("user-1", { data: null, error: null }),
     createInsertHandler((payload) => insertedPayloads.push(payload), {
       data: {
-        status: "manual_review",
+        status: "pending",
         reason: null,
         file_url: "https://example.com/proof.jpg",
         ocr_text: null,
@@ -128,7 +128,7 @@ async function testInsertCreatesNewRecord() {
   const result = await upsertProof(
     "user-1",
     {
-      status: "manual_review",
+      status: "pending",
       reason: undefined,
       file_url: "https://example.com/proof.jpg",
       ocr_text: null,
@@ -139,13 +139,13 @@ async function testInsertCreatesNewRecord() {
   assert.equal(insertedPayloads.length, 1);
   assert.deepEqual(insertedPayloads[0], {
     user_id: "user-1",
-    status: "manual_review",
+    status: "pending",
     file_url: "https://example.com/proof.jpg",
     ocr_text: null,
   });
 
   assert.deepEqual(result, {
-    status: "manual_review",
+    status: "pending",
     reason: null,
     file_url: "https://example.com/proof.jpg",
     ocr_text: null,
@@ -208,7 +208,7 @@ async function testLookupErrorIsPropagated() {
 
   let caught: Error | null = null;
   try {
-    await upsertProof("user-9", { status: "manual_review" }, client);
+    await upsertProof("user-9", { status: "pending" }, client);
   } catch (err) {
     caught = err as Error;
   }
